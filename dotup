@@ -5,6 +5,10 @@
 #  Handles Git updates for Zsh, Nvim, and System configurations.
 # ------------------------------------------------------------------------------
 
+# --- OS Detection ---
+IS_MAC=false
+[[ "$OSTYPE" == "darwin"* ]] && IS_MAC=true
+
 # --- Configuration (Read-Only) ---
 typeset -r PATH_DOTFILES="$HOME/dotfiles"
 typeset -r PATH_ZSH_CONF=${ZSH_PATH:-"$HOME/.config/zsh-conf"}
@@ -28,11 +32,11 @@ print_section_header() {
 # $1 = Display Name of the Repository
 resolve_git_conflict() {
     local repo_name="$1"
-    
+
     print -P "\n${ICON_WARN} %BLocal changes detected in $repo_name.%b"
     print -P "  [r] Reset Hard (Discard changes)"
     print -P "  [s] Stash & Apply (Keep changes)"
-    
+
     local user_action
     read -k 1 "user_action?  > Select option [r/s]: "
     echo # Newline
@@ -58,11 +62,11 @@ update_repository() {
     local repo_display_name="$2"
     local skip_prompt="$3"
 
-    # 
+    #
 
     if [[ -d "$repo_path" && -d "$repo_path/.git" ]]; then
         local should_proceed=false
-        
+
         if [[ "$skip_prompt" == "true" ]]; then
             should_proceed=true
         else
@@ -109,7 +113,7 @@ update_repository() {
 # Cleanup Function
 remove_artifacts() {
     print_section_header "Cleaning up artifacts"
-    
+
     local cleanup_targets=(
         "$HOME/.tmux"
         "$HOME/Installer"
@@ -134,6 +138,8 @@ clear
 print -P "%B%F{cyan}╔════════════════════════════════════════╗%f"
 print -P "%B%F{cyan}║      SYSTEM CONFIGURATION UPDATER      ║%f"
 print -P "%B%F{cyan}╚════════════════════════════════════════╝%f%b"
+print -P "%B%F{cyan}              :: Script by @adityastomar67%f%b"
+print
 
 # Handle CLI Flags
 local flag_only_zsh=false
@@ -158,15 +164,15 @@ fi
 # 2. Update Components
 if [[ "$flag_update_all" == "true" || "$flag_only_nvim" == "true" ]]; then
     # Force update (skip prompt) if the specific flag was passed
-    update_repository "$PATH_NVIM_CONF" "Neovim" "$flag_only_nvim" 
+    update_repository "$PATH_NVIM_CONF" "Neovim" "$flag_only_nvim"
 fi
 
 if [[ "$flag_update_all" == "true" || "$flag_only_zsh" == "true" ]]; then
-    update_repository "$PATH_ZSH_CONF" "Zsh Config" "$flag_only_zsh" 
+    update_repository "$PATH_ZSH_CONF" "Zsh Config" "$flag_only_zsh"
 fi
 
 # 3. System Reloads (Window Manager)
-if [[ "$flag_update_all" == "true" ]]; then
+if [[ "$flag_update_all" == "true" && $IS_MAC == "false" ]]; then
     print_section_header "Reloading System Configurations"
 
     # Reload BSPWM
@@ -189,11 +195,13 @@ if [[ "$flag_update_all" == "true" ]]; then
              kill -USR1 $(pidof st)
         fi
     fi
-    
+
     # Reload Dunst
     if command -v dunstify >/dev/null; then
          dunstify -u low -i ~/.config/bspwm/assets/reload.svg 'System Update' 'Configuration reloaded successfully.'
     fi
+elif [[ $IS_MAC == "true" ]]; then
+    osascript -e 'display notification "Configuration reloaded successfully" with title "System Update"'
 fi
 
 # 4. Finalize
