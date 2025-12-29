@@ -15,6 +15,7 @@ typeset -r PATH_ZSH_CONF=${ZSH_PATH:-"$HOME/.config/zsh-conf"}
 typeset -r PATH_NVIM_CONF="$HOME/.config/nvim"
 
 # --- Visuals (Zsh Prompt Expansion) ---
+# %F{...} only works inside 'print -P' or prompts (PS1)
 typeset -r ICON_GIT="%F{yellow}📦%f"
 typeset -r ICON_OK="%F{green}✅%f"
 typeset -r ICON_ERR="%F{red}❌%f"
@@ -29,7 +30,6 @@ print_section_header() {
 }
 
 # Wrapper for removing local changes or stashing
-# $1 = Display Name of the Repository
 resolve_git_conflict() {
     local repo_name="$1"
 
@@ -37,8 +37,9 @@ resolve_git_conflict() {
     print -P "  [r] Reset Hard (Discard changes)"
     print -P "  [s] Stash & Apply (Keep changes)"
 
-    local user_action
-    read -k 1 "user_action?  > Select option [r/s]: "
+    # FIX: Use print -P for the prompt to support colors, then read cleanly
+    print -P -n "  > Select option [r/s]: "
+    read -k 1 user_action
     echo # Newline
 
     if [[ "$user_action" == "r" ]]; then
@@ -56,13 +57,10 @@ resolve_git_conflict() {
 }
 
 # Generic Repo Updater
-# $1 = Directory Path, $2 = Display Name, $3 = Skip User Prompt (true/false)
 update_repository() {
     local repo_path="$1"
     local repo_display_name="$2"
     local skip_prompt="$3"
-
-    #
 
     if [[ -d "$repo_path" && -d "$repo_path/.git" ]]; then
         local should_proceed=false
@@ -70,14 +68,17 @@ update_repository() {
         if [[ "$skip_prompt" == "true" ]]; then
             should_proceed=true
         else
-            # Zsh 'read -q' allows y/n without hitting enter
-            if read -q "user_confirm?${ICON_GIT} Check updates for %B$repo_display_name%b? [y/N] "; then
+            # FIX: Broken color codes in read prompt
+            # We print the colored prompt first using print -P
+            print -P -n "${ICON_GIT} Check updates for %B$repo_display_name%b? [y/N] "
+
+            # Read one character (-q automatically handles y/n logic)
+            if read -q; then
                 should_proceed=true
             else
-                echo # Newline
-                return
+                should_proceed=false
             fi
-            echo # Newline
+            echo # Newline to prevent text merging
         fi
 
         if [[ "$should_proceed" == "true" ]]; then
@@ -138,7 +139,7 @@ clear
 print -P "%B%F{cyan}╔════════════════════════════════════════╗%f"
 print -P "%B%F{cyan}║      SYSTEM CONFIGURATION UPDATER      ║%f"
 print -P "%B%F{cyan}╚════════════════════════════════════════╝%f%b"
-print -P "%B%F{cyan}              :: Script by @adityastomar67%f%b"
+print -P "%B%F{cyan}             :: Script by @adityastomar67%f%b"
 print
 
 # Handle CLI Flags
